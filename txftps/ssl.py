@@ -65,14 +65,13 @@ class ServerSSLContextFactory(DefaultOpenSSLContextFactory):
         '''Return human readable subject line.'''
         return unicode(certificate.get_subject().get_components())
 
-    def _verifyClientCertificate(self,
+    def _cbVerifyClientCertificate(self,
         connection, certificate, errnum, errdepth, code):
 
         def get_peer(connection):
             '''Return human readable peer id.'''
-            #peer = connection.getpeername()
-            #return peer
-            return u'None'
+            peer = connection.getpeername()
+            return peer
 
         if not code:
             if certificate.has_expired():
@@ -107,7 +106,7 @@ class ServerSSLContextFactory(DefaultOpenSSLContextFactory):
             context.set_verify(
                 SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT |
                 SSL.VERIFY_CLIENT_ONCE,
-                self._verifyClientCertificate)
+                self._cbVerifyClientCertificate)
             if os.path.isdir(self.ca_path):
                 context.load_verify_locations(None, self.ca_path)
             else:
