@@ -22,7 +22,7 @@ from twisted.protocols.ftp import (
 
 from txftps.logger import _, log
 from txftps.credentials import UsernameSSLCertificate
-from txftps.ssl import ChevahTLSMemoryBIOFactory
+from txftps.ssl import NiceTLSMemoryBIOFactory
 
 
 PBSZ_OK = '200.100'
@@ -109,10 +109,7 @@ ftp.toSegments = to_segments
 
 
 class FTPProtocol(FTP):
-    '''Extending twisted.protocols.ftp to implement explicit FTPS.
-
-    It also fixed a few bugs for Chevah.
-    '''
+    '''Extending twisted.protocols.ftp to implement explicit FTPS.'''
 
     dtpTimeout = 30
     PUBLIC_COMMANDS = ['QUIT', 'FEAT']
@@ -415,7 +412,7 @@ class FTPProtocol(FTP):
         if self._protected_data_requested:
             # It is strange, but for acctive connection the SSL
             # layer is still seen as a server.
-            tls_factory = ChevahTLSMemoryBIOFactory(
+            tls_factory = NiceTLSMemoryBIOFactory(
                 contextFactory=self.factory.ssl_context,
                 isClient=False,
                 wrappedFactory=self.dtpFactory,
@@ -717,7 +714,7 @@ class FTPProtocol(FTP):
         for portn in self.passivePortRange:
             try:
                 if self._protected_data_requested:
-                    tls_factory = ChevahTLSMemoryBIOFactory(
+                    tls_factory = NiceTLSMemoryBIOFactory(
                         contextFactory=self.factory.ssl_context,
                         isClient=False,
                         wrappedFactory=factory)

@@ -1,6 +1,6 @@
 # Copyright (c) 2010 Adi Roiban.
 # See LICENSE for details.
-'''Chevah Server SSL context factory.'''
+'''Server SSL context factory.'''
 
 from __future__ import with_statement
 from hashlib import md5
@@ -30,7 +30,7 @@ _sessionCounter = itertools.count().next
 
 
 class ServerSSLContextFactory(DefaultOpenSSLContextFactory):
-    '''OpenSSL context factory for Chevah service.
+    '''OpenSSL context factory with support for CA and CRL checks.
 
     The context is cached and used as a singleton.
     '''
@@ -217,7 +217,13 @@ class ServerSSLContextFactory(DefaultOpenSSLContextFactory):
         return ssl_options
 
 
-class ChevahTLSMemoryBIOProtocol(TLSMemoryBIOProtocol, object):
+class NiceTLSMemoryBIOProtocol(TLSMemoryBIOProtocol, object):
+    '''TLSMemoryBIOProtocol with support for closing the connection in a
+    clean state.
+
+    It will wait for the initial SSL handshake to finish, before closing
+    the connection.
+    '''
 
     def _cbCloseConnection(self, result):
         '''Disconnect the transport.'''
@@ -261,7 +267,7 @@ class ChevahTLSMemoryBIOProtocol(TLSMemoryBIOProtocol, object):
         return deferred
 
 
-class ChevahTLSMemoryBIOFactory(TLSMemoryBIOFactory, object):
-    '''Adapter for ChevahTLSMemoryProtocol to TLSMemoryBIOFactory.'''
+class NiceTLSMemoryBIOFactory(TLSMemoryBIOFactory, object):
+    '''Adapter for NiceTLSMemoryProtocol to TLSMemoryBIOFactory.'''
 
-    protocol = ChevahTLSMemoryBIOProtocol
+    protocol = NiceTLSMemoryBIOProtocol

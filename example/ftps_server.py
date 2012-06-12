@@ -10,12 +10,15 @@ import os
 sys.path.append(os.path.abspath('.'))
 
 from twisted.protocols.ftp import FTPRealm
+from twisted.python import log
 from twisted.cred.portal import Portal
 from twisted.cred.checkers import FilePasswordDB
 from twisted.internet import reactor
 
 from txftps.factory import FTPSFactory
 from txftps.checkers import SSLCertificateChecker
+
+log.startLogging(sys.stdout)
 
 portal = Portal(
     FTPRealm('./example'),
@@ -33,10 +36,11 @@ factory = FTPSFactory(
     )
 
 factory.ssl_enabled = True
-factory.ssl_command_required = False
-factory.ssl_data_required = False
+factory.ssl_command_required = True
+factory.ssl_data_required = True
 factory.enable_password_authentication = True
 factory.enable_ssl_certificate_authentication = True
+
 
 reactor.listenTCP(10021, factory)
 reactor.run()
