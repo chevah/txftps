@@ -77,37 +77,6 @@ RESPONSE[NO_AUTH_METHOD_ENABLED] = (
     '550 No authentication method enabled on the server.')
 
 
-def to_segments(cwd, path):
-    '''
-    Normalize a path, as represented by a list of strings each
-    representing one segment of the path.
-
-    This is the place where segments are created and we make sure
-    they are unicode.
-    '''
-    if path.startswith('/'):
-        segs = []
-    else:
-        segs = cwd[:]
-
-    for s in path.split('/'):
-        if s == '.' or s == '':
-            continue
-        elif s == '..':
-            if segs:
-                segs.pop()
-            else:
-                raise ftp.InvalidPath(cwd, path)
-        elif '\0' in s or '/' in s:
-            raise ftp.InvalidPath(cwd, path)
-        else:
-            segs.append(s.decode('utf-8'))
-    return segs
-
-
-ftp.toSegments = to_segments
-
-
 class FTPProtocol(FTP):
     '''Extending twisted.protocols.ftp to implement explicit FTPS.'''
 
@@ -135,57 +104,6 @@ class FTPProtocol(FTP):
         '''FTP protocol should not use raw data.'''
         raise AssertionError('FTP protocol should not receive raw data.')
 
-    def lineReceived(self, line):
-        '''Reimplement lineReceived so that we can implement logging
-        for internal server errors.'''
-        self.resetTimeout()
-        self.pauseProducing()
-
-        def processFailed(err):
-            if err.check(ftp.FTPCmdError):
-                self.sendLine(err.value.response())
-            elif (err.check(TypeError) and
-                  err.value.args[0].find('takes exactly') != -1):
-                self.reply(
-                    ftp.SYNTAX_ERR, "%s requires an argument." % (cmd,))
-            else:
-                debug_procees_failure(err, cmd)
-                self.reply(ftp.REQ_ACTN_NOT_TAKEN, "internal server error")
-
-        def debug_procees_failure(error, command):
-            import traceback
-            error_details = traceback.format_exc()
-            log(10016, _(
-                u'Internal server error. Failed to process the '
-                u'requested "%s" FTP command. %s %s' % (
-                    command, str(error), error_details)))
-
-        def processSucceeded(result):
-            if isinstance(result, tuple):
-                self.reply(*result)
-            elif result is not None:
-                self.reply(result)
-
-        def allDone(ignored):
-            if not self.disconnected:
-                self.resumeProducing()
-
-        spaceIndex = line.find(' ')
-        if spaceIndex != -1:
-            cmd = line[:spaceIndex]
-            args = (line[spaceIndex + 1:],)
-        else:
-            cmd = line
-            args = ()
-        d = defer.maybeDeferred(self.processCommand, cmd, *args)
-        d.addCallbacks(processSucceeded, processFailed)
-        d.addErrback(debug_procees_failure)
-
-        # XXX It burnsss
-        # LineReceiver doesn't let you resumeProducing inside
-        # lineReceived atm
-        reactor.callLater(0, d.addBoth, allDone)
-
     def _resetSSLStatus(self):
         '''Reset SSL/TLS related status.'''
         self._pbsz = False
@@ -199,13 +117,11 @@ class FTPProtocol(FTP):
 
     @property
     def _peer(self):
-        '''Return a string represented remote peer IP:PORT.'''
+        '''Return the remote peer.'''
         return self.transport.getPeer()
 
     def connectionMade(self):
         '''Called when a new command connection was made.'''
-        log(10033,
-            _(u'New FTP/FTPS client connection made.'), peer=self._peer)
         self._resetSSLStatus()
         super(FTPProtocol, self).connectionMade()
 
@@ -321,31 +237,6 @@ class FTPProtocol(FTP):
         else:
             self._protected_command_requested = False
             return AUTH_BAD
-
-    def _ftp_MODE(self, mode):
-        '''TRANSFER MODE (MODE)
-
-        The argument is a single Telnet character code specifying
-        the data transfer modes described in the Section on
-        Transmission Modes.
-
-        The following codes are assigned for transfer modes:
-           S - Stream
-           B - Block
-           C - Compressed
-        The default transfer mode is Stream.
-
-        Not implemented yet.
-        '''
-
-    def ftp_NOOP(self):
-        '''NOOP (NOOP)
-
-        This command does not affect any parameters or previously
-        entered commands. It specifies no action other than that the
-        server send an OK reply.
-        '''
-        return (ftp.CMD_OK,)
 
     def ftp_OPTS(self, option):
         '''Handle OPTS command.
@@ -493,44 +384,6 @@ class FTPProtocol(FTP):
         self.transport.loseConnection()
         self.disconnected = True
 
-    def _ftp_STRU(self, structure):
-        '''FILE STRUCTURE (STRU)
-
-        The argument is a single Telnet character code specifying
-        file structure described in the Section on Data
-        Representation and Storage.
-
-        The following codes are assigned for structure:
-           F - File (no record structure)
-           R - Record structure
-           P - Page structure
-        The default structure is File.
-
-        Not implemented yet.
-        '''
-
-    def _ftp_SYST(self, mode):
-        '''SYSTEM (SYSTE)
-
-        RFC details not found.
-
-        Not implemented yet.
-        '''
-
-    def _ftp_TYPE(self, type):
-        '''REPRESENTATION TYPE (TYPE)
-
-        The argument specifies the representation type as described
-        in the Section on Data Representation and Storage.  Several
-        types take a second parameter.  The first parameter is
-        denoted by a single Telnet character, as is the second
-        Format parameter for ASCII and EBCDIC; the second parameter
-        for local byte is a decimal integer to indicate Bytesize.
-        The parameters are separated by a <SP> (Space, ASCII code
-        32).
-
-        Not implemented yet.
-        '''
 
     def ftp_USER(self, username):
         '''USER NAME (USER)
@@ -694,17 +547,6 @@ class FTPProtocol(FTP):
             _(u'User "%s" successfully loged.' % (self._user)),
             self._avatar,
             )
-
-    def type_U(self, code):
-        '''TYPE U is equivalent with A.
-
-        UTF-8 RFC http://tools.ietf.org/html/draft-klensin-ftp-typeu-00
-        '''
-        if code == '' or code == 'N':
-            self.binary = False
-            return (ftp.TYPE_SET_OK, 'U' + code)
-        else:
-            return defer.fail(ftp.CmdArgSyntaxError(code))
 
     def getDTPPort(self, factory):
         """
