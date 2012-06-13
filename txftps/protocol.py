@@ -113,7 +113,7 @@ class FTPProtocol(FTP):
     @property
     def is_ftps_command_active(self):
         '''Return `True` if current command connection is using SSL.'''
-        return isinstance(self.transport.socket, SSL.Connection)
+        return self._protected_command_requested
 
     @property
     def _peer(self):
@@ -491,7 +491,7 @@ class FTPProtocol(FTP):
             return None
         if not self.is_ftps_command_active:
             return None
-        return self.transport.socket.get_peer_certificate()
+        return self.transport.getPeerCertificate()
 
     def ftp_PASS(self, password):
         """
