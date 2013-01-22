@@ -2,7 +2,7 @@
 # See LICENSE for details.
 
 """
-An example FTP server with minimal user authentication.
+An example FTPES/FTPIS server with minimal user authentication.
 """
 
 import sys
@@ -12,35 +12,38 @@ sys.path.append(os.path.abspath('.'))
 from twisted.protocols.ftp import FTPRealm
 from twisted.python import log
 from twisted.cred.portal import Portal
-from twisted.cred.checkers import FilePasswordDB
 from twisted.internet import reactor
+from twisted.internet.ssl import DefaultOpenSSLContextFactory
 
-from txftps.factory import FTPSFactory
-from txftps.checkers import SSLCertificateChecker
+from chevah.txftps.factory import FTPFactory, FTPSIFactory
+from chevah.txftps.checkers import InMemoryPassword, SSLCertificateChecker
 
 log.startLogging(sys.stdout)
 
+# Users folders are in /tmp. For 'test_user' create folder '/tmp/test_user'.
 portal = Portal(
-    FTPRealm('./example'),
-    [FilePasswordDB("example/pass.dat"), SSLCertificateChecker()],
+    FTPRealm(anonymousRoot=None, userHome='/tmp'),
+    [InMemoryPassword([('test_user', 'password')]), SSLCertificateChecker()],
     )
 
-factory = FTPSFactory(
-    portal,
-    certificate_path='example/server-cert-and-key.pem',
-    key_path=None,  # certificate contains they key.
-    ca_path=None,  # 'example/ca.pem'
-    crl_path=None,  # 'example/crl.pem'
-    allowed_methods='sslv3 tlsv1',
-    cipher_list='ALL',
+ssl_context_factory = DefaultOpenSSLContextFactory(
+    'example/server-cert-and-key.pem',
+    'example/server-cert-and-key.pem',
     )
 
-factory.ssl_enabled = True
-factory.ssl_command_required = True
-factory.ssl_data_required = True
-factory.enable_password_authentication = True
-factory.enable_ssl_certificate_authentication = True
+factory_explicit = FTPFactory()
+factory_explicit.ssl_enabled = True
+factory_explicit.ssl_command_required = True
+factory_explicit.ftps_force_secured_authentication = True
+factory_explicit.enable_password_authentication = True
+factory_explicit.enable_ssl_certificate_authentication = True
+factory_explicit.portal = portal
+factory_explicit.ssl_context_factory = ssl_context_factory
+reactor.listenTCP(10021, factory_explicit)
 
+factory_implicit = FTPSIFactory()
+factory_implicit.portal = portal
+factory_implicit.ssl_context_factory = ssl_context_factory
+reactor.listenTCP(10990, factory_implicit)
 
-reactor.listenTCP(10021, factory)
 reactor.run()

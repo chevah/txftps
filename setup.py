@@ -1,18 +1,16 @@
 from setuptools import setup
 
-from txftps import meta
-from txftps.util import dist
-
+VERSION = '0.1.0'
 
 setup(
-    name=meta.display_name,
-    version=meta.version,
+    name="chevah-txftps",
+    version=VERSION,
     description=meta.description,
-    author=meta.author,
-    author_email=meta.author_email,
-    url=meta.url,
-    license=meta.license,
-    packages=dist.findPackages(meta.library_name),
+    author='Adi Roiban',
+    author_email='adi.roiban@chevah.com',
+    url='http://www.chevah.com',
+    license='BSD 3-Clause',
+    packages=['chevah', 'chevah.txftps'],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
